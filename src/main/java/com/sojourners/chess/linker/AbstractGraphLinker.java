@@ -96,40 +96,6 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
         return true;
     }
 
-    /**
-     * 调试日志（写入软件目录 log/debug.log，便于远程分析）
-     */
-    private static synchronized void logDebug(String msg) {
-        try {
-            String dir = com.sojourners.chess.util.PathUtils.getJarPath();
-            if (dir == null) {
-                return;
-            }
-            java.io.File logDir = new java.io.File(dir, "log");
-            if (!logDir.exists()) {
-                logDir.mkdirs();
-            }
-            java.io.File f = new java.io.File(logDir, "debug.log");
-            java.io.FileWriter w = new java.io.FileWriter(f, true);
-            w.write(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new java.util.Date())
-                    + " " + msg + "\n");
-            w.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static String boardToString(char[][] board) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 10; i++) {
-            for (int j = 0; j < 9; j++) {
-                sb.append(board[i][j] == ' ' ? '.' : board[i][j]);
-            }
-            sb.append('/');
-        }
-        return sb.toString();
-    }
-
     private boolean isStable(char[][] board) {
         if (isSame(board, stableBoard)) {
             stableCount++;
@@ -624,15 +590,12 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
     private boolean findChessBoard(char[][] board) {
         // 截图
         BufferedImage img = screenshot(false);
-        logDebug("findChessBoard screenshot=" + (img == null ? "null" : img.getWidth() + "x" + img.getHeight()));
         // ai识别棋盘棋子
         if (this.aiModel.findChessBoard(img, board) && validateLinkBoard(board) && pieceCountOK(board)) {
-            logDebug("ai OK pieces=" + countPieces(board) + " board=" + boardToString(board));
             return true;
         }
         // 主模型识别失败时，尝试VinXiangQi模型（支持JJ象棋等深色棋盘）
         if (this.vinModel.findChessBoard(img, board) && validateLinkBoard(board) && pieceCountOK(board)) {
-            logDebug("vin OK pieces=" + countPieces(board) + " board=" + boardToString(board));
             return true;
         }
         // 少子补棋：识别出合法局面但棋子数明显偏少时（相对引擎局面少2子以上），
@@ -640,20 +603,16 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
         if (validateLinkBoard(board)) {
             BufferedImage img2 = screenshot(false);
             if (this.vinModel.completeChessBoard(img2, board) && validateLinkBoard(board) && pieceCountOK(board)) {
-                logDebug("vin complete OK pieces=" + countPieces(board) + " board=" + boardToString(board));
                 return true;
             }
             if (this.aiModel.completeChessBoard(img2, board) && validateLinkBoard(board) && pieceCountOK(board)) {
-                logDebug("ai complete OK pieces=" + countPieces(board) + " board=" + boardToString(board));
                 return true;
             }
             // 引擎局面补棋：模型补不上时，直接用引擎局面补缺失棋子（残局漏识别主方案）
             if (completeWithEngine(board) && validateLinkBoard(board) && pieceCountOK(board)) {
-                logDebug("engine complete OK pieces=" + countPieces(board) + " board=" + boardToString(board));
                 return true;
             }
         }
-        logDebug("findChessBoard FAIL pieces=" + countPieces(board) + " board=" + boardToString(board));
         return false;
     }
 
