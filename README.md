@@ -64,6 +64,14 @@
 + [VinXiangQi](https://github.com/Vincentzyx/VinXiangQi) — YOLOv5 深色棋盘识别模型（`yolo5-vin.onnx`）的训练来源
 + [Pikafish](https://github.com/official-pikafish/Pikafish) — 内置象棋引擎（`pikafish-*.exe` + `pikafish.nnue`）
 
+### 第三方依赖库
+
++ [ONNX Runtime](https://github.com/microsoft/onnxruntime) — 深度学习推理引擎（`onnxruntime 1.19.2`）
++ [JavaFX](https://openjfx.io/) — 图形界面框架（`23.0.1`）
++ [JNA](https://github.com/java-native-access/jna) — Windows API 调用（`jna-platform 5.15.0`）
++ [JNativeHook](https://github.com/kwhat/jnativehook) — 全局键盘鼠标钩子（`2.1.0`）
++ [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) — 开局库数据库访问（`3.45.2.0`）
+
 ## 运行环境和依赖
 
 + JDK 21
