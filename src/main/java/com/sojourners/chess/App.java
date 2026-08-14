@@ -45,7 +45,7 @@ public class App extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader();
         fxmlLoader.setLocation(getClass().getResource("/fxml/app.fxml"));
         Parent root = fxmlLoader.load();
-        primaryStage.setTitle("TCHESS  V" + VERSION);
+        primaryStage.setTitle("TCHESS  V" + VERSION + " 修复版");
         Scene scene = new Scene(root);
         applyTheme(scene);
         primaryStage.setScene(scene);

@@ -1,0 +1,4 @@
+target/
+dependency-reduced-pom.xml
+*.log
+debug_*.png
