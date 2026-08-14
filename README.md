@@ -1,8 +1,14 @@
 # TCHESS V1.9 深色棋盘修复版 (Dark Board Fix Edition)
 
+> **中文** | [English](#english)
+
 This project is based on [public-Xiangqi](https://github.com/sojourners/public-Xiangqi) (TCHESS V1.9) with deep modifications, focusing on fixing **unstable board recognition on dark themes (e.g. JJ Chess)**. It also improves linking, recognition and engine features.
 
 本项目基于 [public-Xiangqi](https://github.com/sojourners/public-Xiangqi)（TCHESS V1.9）源码深度修改，重点解决 **JJ象棋 等深色棋盘识别不稳定** 的问题，并完善了连线、识别、引擎等多项功能。
+
+---
+
+# 中文说明
 
 ## 主要功能
 
@@ -86,3 +92,90 @@ This project is based on [public-Xiangqi](https://github.com/sojourners/public-X
 ## 声明
 
 本项目基于 [GPLv3](LICENSE) 协议开源。你可以自由下载、使用、复制修改，但需遵守开源协议内容，禁止未经授权用于商业用途！
+
+---
+
+# <a name="english"></a>English
+
+## Features
+
++ Load UCI / UCCI protocol engines (Pikafish, Xiaochong, Xuanfeng, etc.)
++ Human vs engine, engine vs engine, analysis mode
++ Game record management (save / open / edit / branches)
++ Screen linking (JJ Chess, QQ Chess, Tian Tian Chess, etc., foreground & background modes)
++ Opening books (built-in / custom, pfBook support)
++ Dark board recognition (VinYolo5 model + YOLOv11 dual-model auto-switch)
+
+## Changes in This Version
+
+### 1. Dark Board Recognition (Core Fix)
+
+Addresses low recognition rate on dark-themed boards (JJ Chess on emulator / mobile):
+
+- Integrated YOLOv5 model trained by VinXiangQi (`yolo5-vin.onnx`), auto-switches when the main model (YOLOv11) fails
+- Dark-board confidence thresholds: board 0.5 / piece 0.5, retry 0.4, recovery 0.35
+- **Orientation (red/black direction) fix**: first-move detection no longer depends on exact FEN match, so occasional recognition errors no longer cause wrong red/black flipping
+- **Multi-board piece grouping**: when multiple boards appear on screen, pieces are grouped by their own board to avoid mixing
+
+### 2. Midgame / Endgame Piece Recovery
+
+- Loosened piece-count tolerance (up to 2 pieces fewer than engine board accepted)
+- Added **engine-board recovery**: when pieces are missing, uses the engine board to fill missing pieces after model recovery fails, so endgame recognition no longer stalls
+
+### 3. Screenshot & Window Fixes
+
+- Fixed background-mode screenshot DPI scaling causing cropped region misalignment / black images (unified full-window capture + unified crop)
+- Window DPI / scaled coordinate handling (DwmapiExtra)
+
+### 4. Linking Settings & Stability
+
+- Added linking schemes (LinkScheme): auto-match game windows by title / class
+- Auto re-locate board and re-initialize position after consecutive recognition failures
+- Smart confirmation for new positions: accept immediately when a clear legal move is matched, otherwise require two identical frames
+
+### 5. Engine Path Fallback
+
+- If the configured engine absolute path becomes invalid (e.g. software moved to another folder), automatically searches for Pikafish in the program's `Windows/` directory
+
+## Usage
+
+See [MANUAL.md](MANUAL.md) for details.
+
+Download the latest release from [Releases](https://github.com/amw1933/public-Xiangqi/releases).
+
+### Quick Start
+
+1. Extract the zip to any folder (avoid spaces in the path)
+2. Run `tchess.exe`
+3. Click "Engine" to load Pikafish (default: `Windows/pikafish-bmi2.exe`)
+4. Click "Link" and select the game window (JJ Chess dark board)
+5. The board is recognized automatically and play begins
+
+## References
+
+This project deeply references the following open-source projects. Thanks to the original authors:
+
++ [public-Xiangqi (TCHESS)](https://github.com/sojourners/public-Xiangqi) — upstream chess GUI, code base of this project
++ [VinXiangQi](https://github.com/Vincentzyx/VinXiangQi) — source of the YOLOv5 dark-board model (`yolo5-vin.onnx`)
++ [Pikafish](https://github.com/official-pikafish/Pikafish) — bundled chess engine (`pikafish-*.exe` + `pikafish.nnue`)
+
+### Third-party Dependencies
+
++ [ONNX Runtime](https://github.com/microsoft/onnxruntime) — deep learning inference engine (`onnxruntime 1.19.2`)
++ [JavaFX](https://openjfx.io/) — GUI framework (`23.0.1`)
++ [JNA](https://github.com/java-native-access/jna) — Windows API access (`jna-platform 5.15.0`)
++ [JNativeHook](https://github.com/kwhat/jnativehook) — global keyboard/mouse hooks (`2.1.0`)
++ [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) — opening book database access (`3.45.2.0`)
+
+## Requirements
+
++ JDK 21
++ JavaFX 23 (bundled)
+
+## Feedback
+
+Issues and PRs are welcome.
+
+## License
+
+This project is open source under [GPLv3](LICENSE). You are free to download, use, copy and modify it under the license terms. Commercial use without authorization is prohibited!
