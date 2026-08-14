@@ -1,4 +1,6 @@
-# TCHESS V1.9 深色棋盘修复版
+# TCHESS V1.9 深色棋盘修复版 (Dark Board Fix Edition)
+
+This project is based on [public-Xiangqi](https://github.com/sojourners/public-Xiangqi) (TCHESS V1.9) with deep modifications, focusing on fixing **unstable board recognition on dark themes (e.g. JJ Chess)**. It also improves linking, recognition and engine features.
 
 本项目基于 [public-Xiangqi](https://github.com/sojourners/public-Xiangqi)（TCHESS V1.9）源码深度修改，重点解决 **JJ象棋 等深色棋盘识别不稳定** 的问题，并完善了连线、识别、引擎等多项功能。
 
