@@ -557,17 +557,17 @@ public class Controller implements EngineCallBack, LinkerCallBack, ChessManualCa
 
     @FXML
     public void upgradeClick(ActionEvent e) {
-        SystemUtils.openBrowser("https://github.com/sojourners/public-Xiangqi/releases");
+        SystemUtils.openBrowser("https://github.com/amw1933/public-Xiangqi/releases");
     }
 
     @FXML
     public void instructionClick(ActionEvent e) {
-        SystemUtils.openBrowser("https://github.com/sojourners/public-Xiangqi/blob/master/MANUAL.md");
+        SystemUtils.openBrowser("https://github.com/amw1933/public-Xiangqi/blob/master/MANUAL.md");
     }
 
     @FXML
     public void homeClick(ActionEvent e) {
-        SystemUtils.openBrowser("https://github.com/sojourners/public-Xiangqi");
+        SystemUtils.openBrowser("https://github.com/amw1933/public-Xiangqi");
     }
 
     @FXML

@@ -56,6 +56,14 @@
 4. 点击"连线"，按提示点选游戏窗口（JJ象棋 深色棋盘）
 5. 自动识别棋盘并开始对弈
 
+## 参考项目
+
+本项目深度参考并引用了以下开源项目，感谢原作者：
+
++ [public-Xiangqi (TCHESS)](https://github.com/sojourners/public-Xiangqi) — 上游象棋界面程序，本项目的代码基础
++ [VinXiangQi](https://github.com/Vincentzyx/VinXiangQi) — YOLOv5 深色棋盘识别模型（`yolo5-vin.onnx`）的训练来源
++ [Pikafish](https://github.com/official-pikafish/Pikafish) — 内置象棋引擎（`pikafish-*.exe` + `pikafish.nnue`）
+
 ## 运行环境和依赖
 
 + JDK 21
