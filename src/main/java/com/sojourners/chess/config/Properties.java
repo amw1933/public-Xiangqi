@@ -92,8 +92,8 @@ public class Properties implements Serializable {
     private int bookDelayStart = 0;
     private int bookDelayEnd = 0;
 
-    private int mouseClickDelay = 2;
-    private int mouseMoveDelay = 0;
+    private int mouseClickDelay = 100;
+    private int mouseMoveDelay = 120;
     /*
      * 显示棋谱管理
      */

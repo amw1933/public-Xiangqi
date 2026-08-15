@@ -1,4 +1,4 @@
-# TCHESS V1.9 深色棋盘修复版 (Dark Board Fix Edition)
+# TCHESS V1.9.1 深色棋盘修复版 (Dark Board Fix Edition)
 
 > **中文** | [English](#english)
 
