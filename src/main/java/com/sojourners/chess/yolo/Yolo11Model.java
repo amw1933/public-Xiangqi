@@ -1,7 +1,10 @@
 package com.sojourners.chess.yolo;
 
+import com.sojourners.chess.util.PathUtils;
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,6 +14,15 @@ public class Yolo11Model extends Yolo5Model {
 
     @Override
     public String getModelPath() {
+        // 优先使用增强版 12M 模型（如存在）；没有则回退官方内置模型。
+        // 两个文件都不加密，文件名保持与来源一致（见仓库 MODELS.md）。
+        try {
+            File enhanced = new File(PathUtils.getJarPath(), "model/yolov11-12m.onnx");
+            if (enhanced.isFile()) {
+                return "model/yolov11-12m.onnx";
+            }
+        } catch (Throwable ignored) {
+        }
         return "model/yolov11.onnx";
     }
 

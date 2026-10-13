@@ -7,6 +7,7 @@ import com.sojourners.chess.util.StringUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
 
 
@@ -22,6 +23,14 @@ public class LinkSettingController {
 
     @FXML
     private TextField mouseMoveDelay;
+
+    @FXML
+    private ComboBox<String> linkAiModel;
+
+    /** 下拉框显示名与软件内部标识（与模型文件名对应，见《模型溯源说明》）。
+     *  yolo11 为主力；pose 为备援——只在 yolo11 识别失败时上场救急。 */
+    private static final String MODEL_YOLO = "yolo11（yolov11.onnx·主力）";
+    private static final String MODEL_POSE = "pose（4_v6-0301.onnx + nano_v3-0319.onnx·识别失败时救场）";
 
     private Properties prop;
 
@@ -59,6 +68,10 @@ public class LinkSettingController {
         }
         prop.setMouseMoveDelay(Integer.parseInt(txt));
 
+        if (linkAiModel.getValue() != null) {
+            prop.setLinkAiModel(MODEL_YOLO.equals(linkAiModel.getValue()) ? "yolo11" : "pose");
+        }
+
         App.closeLinkSetting();
     }
 
@@ -71,6 +84,9 @@ public class LinkSettingController {
 
         mouseClickDelay.setText(String.valueOf(prop.getMouseClickDelay()));
         mouseMoveDelay.setText(String.valueOf(prop.getMouseMoveDelay()));
+
+        linkAiModel.getItems().setAll(MODEL_YOLO, MODEL_POSE);
+        linkAiModel.setValue("yolo11".equalsIgnoreCase(prop.getLinkAiModel()) ? MODEL_YOLO : MODEL_POSE);
 
     }
 

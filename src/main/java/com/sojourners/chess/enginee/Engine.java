@@ -12,6 +12,8 @@ import com.sojourners.chess.util.StringUtils;
 import java.io.*;
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -50,6 +52,18 @@ public class Engine {
 
     private int multiPV;
 
+    // ===== 引擎掉线自愈（仅此一项，保持最小改动） =====
+    /** 引擎配置，重启时复用 */
+    private EngineConfig engineConfig;
+    /** 主动关闭标记（退出/切换引擎），关闭后不再自动重启 */
+    private volatile boolean closed;
+    /** 重启单飞标记 */
+    private volatile boolean restarting;
+    /** 最近一次分析请求，用于重启后重新发出 */
+    private volatile String lastFen;
+    private volatile List<String> lastMoves;
+    private volatile List<String> lastTactics;
+
     public enum AnalysisModel {
         FIXED_TIME,
         FIXED_STEPS,
@@ -58,6 +72,7 @@ public class Engine {
     }
 
     public Engine(EngineConfig ec, EngineCallBack cb) throws IOException {
+        this.engineConfig = ec;
         this.protocol = ec.getProtocol();
         this.cb = cb;
         this.random = new SecureRandom();
@@ -70,6 +85,21 @@ public class Engine {
             multiPV = 1;
         }
 
+        startProcess();
+        cmd(protocol);
+
+        for (Map.Entry<String, String> entry : ec.getOptions().entrySet()) {
+            if ("uci".equals(this.protocol)) {
+                cmd("setoption name " + entry.getKey() + " value " + entry.getValue());
+            } else if ("ucci".equals(this.protocol)) {
+                cmd("setoption " + entry.getKey() + " " + entry.getValue());
+            }
+        }
+    }
+
+    /** 启动引擎进程并挂上读取线程（初始化与自动重启共用）。 */
+    private void startProcess() throws IOException {
+        EngineConfig ec = this.engineConfig;
         process = Runtime.getRuntime().exec(ec.getPath(), null, PathUtils.getParentDir(ec.getPath()));
         reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
@@ -85,20 +115,89 @@ public class Engine {
                         bestMove(line);
                     }
                 }
+                // 读循环结束 = 引擎进程退出
+                onEngineGone("引擎进程已退出");
             } catch (Exception e) {
-                e.printStackTrace();
+                onEngineGone("引擎读取异常：" + e);
             }
         });
+    }
 
+    /** 引擎掉线处理：自动重启并把最近一次分析请求重新发出。 */
+    private void onEngineGone(String reason) {
+        if (closed || restarting) {
+            return;
+        }
+        System.out.println("【引擎自愈】检测到引擎掉线：" + reason + "，准备自动重启…");
+        restarting = true;
+        Thread.startVirtualThread(() -> {
+            try {
+                for (int attempt = 1; attempt <= 5 && !closed; attempt++) {
+                    try {
+                        restartProcess();
+                        System.out.println("【引擎自愈】引擎已自动重启成功（第" + attempt + "次尝试）。");
+                        resumeAnalysis();
+                        return;
+                    } catch (Throwable t) {
+                        System.out.println("【引擎自愈】第" + attempt + "次重启失败：" + t);
+                        sleep(1000L * attempt);
+                    }
+                }
+                System.out.println("【引擎自愈】多次重启失败，已放弃。请在界面中重新选择引擎。");
+            } finally {
+                restarting = false;
+            }
+        });
+    }
+
+    private synchronized void restartProcess() throws Exception {
+        if (closed) {
+            throw new IOException("引擎已关闭");
+        }
+        try {
+            if (process != null) {
+                process.destroyForcibly();
+            }
+        } catch (Exception ignore) {
+        }
+        try {
+            reader.close();
+        } catch (Exception ignore) {
+        }
+        try {
+            writer.close();
+        } catch (Exception ignore) {
+        }
+
+        startProcess();
         cmd(protocol);
-
-        for (Map.Entry<String, String> entry : ec.getOptions().entrySet()) {
+        for (Map.Entry<String, String> entry : engineConfig.getOptions().entrySet()) {
             if ("uci".equals(this.protocol)) {
                 cmd("setoption name " + entry.getKey() + " value " + entry.getValue());
             } else if ("ucci".equals(this.protocol)) {
                 cmd("setoption " + entry.getKey() + " " + entry.getValue());
             }
         }
+        if (threadNum > 0) {
+            cmd(("uci".equals(this.protocol) ? "setoption name Threads value " : "setoption Threads ") + threadNum);
+        }
+        if (hashSize > 0) {
+            cmd(("uci".equals(this.protocol) ? "setoption name Hash value " : "setoption Hash ") + hashSize);
+        }
+        // 给引擎一点启动时间，确保后续命令能正常接收
+        sleep(300L);
+    }
+
+    /** 引擎重启后，把最近一次分析请求重新发出。 */
+    private void resumeAnalysis() {
+        String fen = lastFen;
+        if (fen == null || fen.isEmpty()) {
+            return;
+        }
+        List<String> moves = lastMoves == null ? null : new ArrayList<>(lastMoves);
+        List<String> tactics = lastTactics == null ? null : new ArrayList<>(lastTactics);
+        System.out.println("【引擎自愈】重新接管当前局面分析：" + fen);
+        this.analysis(fen, moves, tactics);
     }
 
     public int getMultiPV() {
@@ -308,6 +407,10 @@ public class Engine {
     }
 
     public void analysis(String fenCode, List<String> moves, List<String> tacticList) {
+        // 记录最近一次分析请求（引擎掉线自动重启后重新发出）
+        this.lastFen = fenCode;
+        this.lastMoves = moves == null ? null : new ArrayList<>(moves);
+        this.lastTactics = tacticList == null ? null : new ArrayList<>(tacticList);
         stop();
 
         if (threadNumChange) {

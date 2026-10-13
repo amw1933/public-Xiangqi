@@ -58,6 +58,7 @@ public class Properties implements Serializable {
     private boolean linkAnimation;
     private boolean linkShowInfo;
     private boolean linkBackMode;
+    private String linkAiModel;
 
     private List<String> openBookList;
 
@@ -362,6 +363,14 @@ public class Properties implements Serializable {
 
     public void setLinkBackMode(boolean linkBackMode) {
         this.linkBackMode = linkBackMode;
+    }
+
+    public String getLinkAiModel() {
+        return linkAiModel == null || linkAiModel.isBlank() ? "yolo11" : linkAiModel;
+    }
+
+    public void setLinkAiModel(String linkAiModel) {
+        this.linkAiModel = linkAiModel;
     }
 
     public double getSplitPos2() {

@@ -3,6 +3,7 @@ package com.sojourners.chess.linker;
 import com.sojourners.chess.board.ChessBoard;
 import com.sojourners.chess.config.Properties;
 import com.sojourners.chess.util.XiangqiUtils;
+import com.sojourners.chess.yolo.ChessRecognitionModel;
 import com.sojourners.chess.yolo.OnnxModel;
 import com.sojourners.chess.yolo.Yolo11Model;
 
@@ -32,6 +33,8 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
 
     private OnnxModel aiModel;
 
+    private OnnxModel supportAiModel;
+
     private LinkerCallBack callBack;
 
     private Robot robot;
@@ -46,8 +49,9 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
         this.callBack = callBack;
         robot = new Robot();
         this.count = 0;
-        this.aiModel = new Yolo11Model();
         this.prop = Properties.getInstance();
+        this.aiModel = "yolo11".equalsIgnoreCase(prop.getLinkAiModel()) ? new Yolo11Model() : new ChessRecognitionModel();
+        this.supportAiModel = !"yolo11".equalsIgnoreCase(prop.getLinkAiModel()) ? new Yolo11Model() : new ChessRecognitionModel();
         this.pause = false;
     }
 
@@ -89,6 +93,10 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
     public void run() {
         while (!Thread.currentThread().isInterrupted()) {
             if (!findBoardPosition()) {
+                // 找不到棋盘：可能是终局画面，检查“再来一局/继续”按钮并自动点击
+                if (autoContinueIfNeeded()) {
+                    continue;
+                }
                 sleep(1000);
                 continue;
             }
@@ -107,6 +115,10 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
                 if (!callBack.isThinking() && !pause) {
 
                     if (!findChessBoard(board2)) {
+                        // 棋盘区域在但认不出棋子（终局画面常出现）：检查继续按钮
+                        if (autoContinueIfNeeded()) {
+                            continue;
+                        }
                         continue;
                     }
 
@@ -154,6 +166,12 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
 
                     if (Thread.currentThread().isInterrupted()) {
                         return;
+                    }
+                    // 识别到但无法推进（对局已结束的终局画面：盘面在、与引擎局面不符、
+                    // 也配不出走法）——检查“再来一局/继续”按钮并自动点击
+                    if ((action == null || action.flag == 3 || action.flag == 4) && autoContinueIfNeeded()) {
+                        count = 0;
+                        continue;
                     }
                     if (action != null) {
                         System.out.println("action " + action);
@@ -480,6 +498,10 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
     boolean findBoardPosition() {
         BufferedImage img = screenshot(true);
         this.boardPos = this.aiModel.findBoardPosition(img);
+        if (this.boardPos == null) {
+            // 主模型找不到棋盘时，尝试备用模型
+            this.boardPos = this.supportAiModel.findBoardPosition(img);
+        }
         return this.boardPos != null;
     }
 
@@ -508,8 +530,17 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
     private boolean findChessBoard(char[][] board) {
         // 截图
         BufferedImage img = screenshot(false);
+        boolean f = findChessBoardWithModel(img, board, this.aiModel);
+        if (!f) {
+            // 主模型识别不出来，尝试备用模型
+            f = findChessBoardWithModel(img, board, this.supportAiModel);
+        }
+        return f;
+    }
+
+    private boolean findChessBoardWithModel(BufferedImage img, char[][] board, OnnxModel model) {
         // ai识别棋盘棋子
-        if (!this.aiModel.findChessBoard(img, board)) {
+        if (!model.findChessBoard(img, board)) {
             return false;
         }
         boolean f = XiangqiUtils.validateChessBoard(board);
@@ -626,13 +657,90 @@ public abstract class AbstractGraphLinker implements GraphLinker, Runnable {
         }
     }
 
+    // ==================================================================================
+    // 终局自动继续：找不到棋盘时检查“再来一局/继续/下一轮”按钮并自动点击。
+    // 不改动任何识别逻辑；仅作为识别循环的兜底动作。支持连续多个画面（如升级结算两次）。
+    // ==================================================================================
+
+    /** 每 N 次“找不到棋盘”检查一次，控制开销。 */
+    private static final int AUTO_CONTINUE_EVERY = 3;
+    /** 同一画面最多点击次数（覆盖“要点两次”的场景，同时防止误触死循环）。 */
+    private static final int AUTO_CONTINUE_MAX_CLICKS = 4;
+
+    private int autoContinueTick;
+    private int autoContinueClicks;
+    private long autoContinueLastClickAt;
+
+    /**
+     * 找不到棋盘时调用：检测终局按钮并自动点击。
+     *
+     * @return true 表示刚刚点击过一次
+     */
+    private boolean autoContinueIfNeeded() {
+        if (ButtonLibrary.getInstance().size() == 0) {
+            return false;
+        }
+        if (++this.autoContinueTick % AUTO_CONTINUE_EVERY != 0) {
+            return false;
+        }
+        // 同一画面连点达到上限仍未离开：冷却 15 秒再继续尝试
+        if (this.autoContinueClicks >= AUTO_CONTINUE_MAX_CLICKS) {
+            if (System.currentTimeMillis() - this.autoContinueLastClickAt < 15000L) {
+                return false;
+            }
+            this.autoContinueClicks = 0;
+        }
+        try {
+            BufferedImage img = this.screenshot(true);
+            if (img == null) {
+                return false;
+            }
+            String[] hitName = new String[1];
+            int[] hit = ButtonLibrary.getInstance().match(img, hitName);
+            if (hit == null) {
+                // 未命中：保存现场（自动采集，供后续补充模板；目录 log/screenshots）
+                ButtonLibrary.saveSceneShot(img);
+                return false;
+            }
+            this.clickByScreenPoint(hit[0], hit[1]);
+            this.autoContinueClicks++;
+            this.autoContinueLastClickAt = System.currentTimeMillis();
+            System.out.println("连线：识别到终局按钮（" + hitName[0] + "），自动点击第 "
+                    + this.autoContinueClicks + " 次（" + hit[0] + "," + hit[1] + "）");
+            return true;
+        } catch (Throwable t) {
+            t.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 按“截图坐标系”的点位点击（与 screenshot(true) 的内容坐标一致）。
+     */
+    private void clickByScreenPoint(int x, int y) {
+        try {
+            Point p = new Point(x, y);
+            if (this.prop.isLinkBackMode()) {
+                this.mouseClickByBack(p, p);
+            } else {
+                Rectangle windowPos = this.getTargetWindowPosition();
+                this.mouseClickByFront(windowPos, p, p);
+            }
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
+    }
+
     // find chess board from image
     public char[][] findChessBoard(BufferedImage img) {
         char[][] tmp = new char[10][9];
         if (this.aiModel.findChessBoard(img, tmp)) {
             return tmp;
-        } else {
-            return null;
         }
+        tmp = new char[10][9];
+        if (this.supportAiModel.findChessBoard(img, tmp)) {
+            return tmp;
+        }
+        return null;
     }
 }
